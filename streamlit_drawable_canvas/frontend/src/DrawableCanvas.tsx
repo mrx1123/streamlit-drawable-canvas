@@ -125,7 +125,8 @@ const DrawableCanvas = ({ args }: ComponentProps) => {
     if (backgroundImageURL) {
       var bgImage = new Image();
       bgImage.onload = function() {
-        backgroundCanvas.getContext().drawImage(bgImage, 0, 0);
+        var faImage = new fabric.Image(bgImage, {width: canvasWidth, height: canvasHeight});
+        backgroundCanvas.add(faImage);
       };
       const baseUrl = getStreamlitBaseUrl() ?? ""
       bgImage.src = baseUrl + backgroundImageURL
@@ -163,9 +164,60 @@ const DrawableCanvas = ({ args }: ComponentProps) => {
       displayRadius: displayRadius
     })
 
+    // 鼠标滚轮，zoomtopoint
+    canvas.on("mouse:wheel", (e: any) => {
+      const delta = e.e.deltaY
+      let zoom = canvas.getZoom()
+    
+      zoom *= 0.999 ** delta
+      if (zoom > 10) zoom = 10
+
+      // Ensure the canvas cannot be zoomed out smaller than the size of the canvas
+      const minZoom = Math.min(canvasWidth / canvas.getWidth(), canvasHeight / canvas.getHeight()) * 0.5
+      if (zoom < minZoom) zoom = minZoom
+
+      let point = canvas.getPointer(e.e);
+
+      canvas.zoomToPoint(new fabric.Point(point.x, point.y), zoom)
+      backgroundCanvas.zoomToPoint(new fabric.Point(point.x, point.y), zoom)
+      e.e.preventDefault()
+      e.e.stopPropagation()
+    })
+
+    // right click, button === 3 to drag both canvas and backgroundCanvas
+    let isDragging = false
+    let lastPosX = 0
+    let lastPosY = 0
+
+    canvas.on("mouse:down", (e: any) => {
+      if (e.button === 3) {
+        isDragging = true
+        const pointer = canvas.getPointer(e.e)
+        lastPosX = pointer.x
+        lastPosY = pointer.y
+      }
+    })
+
+    canvas.on("mouse:move", (e: any) => {
+      if (isDragging) {
+        const pointer = canvas.getPointer(e.e)
+        const deltaX = pointer.x - lastPosX
+        const deltaY = pointer.y - lastPosY
+
+        let point = new fabric.Point(deltaX, deltaY)
+
+        canvas.relativePan(point)
+        backgroundCanvas.relativePan(point)
+
+        lastPosX = pointer.x
+        lastPosY = pointer.y
+      }
+    })
+
     canvas.on("mouse:up", (e: any) => {
       saveState(canvas.toJSON())
-      if (e["button"] === 3) {
+      if (e.button === 3) {
+        isDragging = false
         forceStreamlitUpdate()
       }
     })
@@ -179,6 +231,9 @@ const DrawableCanvas = ({ args }: ComponentProps) => {
       cleanupToolEvents()
       canvas.off("mouse:up")
       canvas.off("mouse:dblclick")
+      canvas.off("mouse:wheel")
+      canvas.off("mouse:down")
+      canvas.off("mouse:move")
     }
   }, [
     canvas,

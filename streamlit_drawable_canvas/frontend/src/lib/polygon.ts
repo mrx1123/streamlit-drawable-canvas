@@ -83,8 +83,9 @@ class PolygonTool extends FabricTool {
 
       _start = false
     } else {
-      canvas.remove(this.currentPath)
+      // 只有在左键点击时才移除当前路径
       if (_clicked === 0) {
+        canvas.remove(this.currentPath)
         // Update pathString
         this._pathString += `L ${pointer.x} ${pointer.y} `
       }
@@ -94,18 +95,23 @@ class PolygonTool extends FabricTool {
         canvas.remove(this.startCircle)
       }
     }
-    this.currentPath = new fabric.Path(this._pathString, {
-      strokeWidth: this.strokeWidth,
-      fill: this.fillColor,
-      stroke: this.strokeColor,
-      originX: "center",
-      originY: "center",
-      selectable: false,
-      evented: false,
-    })
-    if (this.currentPath.width !== 0 && this.currentPath.height !== 0) {
-      canvas.add(this.currentPath)
+
+    // 只有在非右键点击或路径字符串不为空时才创建新路径
+    if (_clicked !== 2 || this._pathString !== "M ") {
+      this.currentPath = new fabric.Path(this._pathString, {
+        strokeWidth: this.strokeWidth,
+        fill: this.fillColor,
+        stroke: this.strokeColor,
+        originX: "center",
+        originY: "center",
+        selectable: false,
+        evented: false,
+      })
+      if (this.currentPath.width !== 0 && this.currentPath.height !== 0) {
+        canvas.add(this.currentPath)
+      }
     }
+
     if (_clicked === 2) {
       this._pathString = "M "
     }
