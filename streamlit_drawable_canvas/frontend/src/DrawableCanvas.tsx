@@ -272,6 +272,15 @@ const DrawableCanvas = ({ args }: ComponentProps) => {
     forceStreamlitUpdate,
   ])
 
+  const resetZoom = () => {
+    canvas.setZoom(1)
+    canvas.viewportTransform = [1, 0, 0, 1, 0, 0]
+    backgroundCanvas.setZoom(1)
+    backgroundCanvas.viewportTransform = [1, 0, 0, 1, 0, 0]
+    canvas.renderAll()
+    backgroundCanvas.renderAll()
+  }
+
   /**
    * Render canvas w/ toolbar
    */
@@ -335,6 +344,7 @@ const DrawableCanvas = ({ args }: ComponentProps) => {
           redoCallback={redo}
           resetCallback={() => {
             resetState(initialState)
+            resetZoom() // Reset zoom when resetting state
           }}
         />
       )}
