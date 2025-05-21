@@ -176,10 +176,29 @@ const DrawableCanvas = ({ args }: ComponentProps) => {
       const minZoom = Math.min(canvasWidth / canvas.getWidth(), canvasHeight / canvas.getHeight()) * 0.5
       if (zoom < minZoom) zoom = minZoom
 
-      let point = canvas.getPointer(e.e);
-
+      let point = canvas.getPointer(e.e, true);
+      // process point, limit the range of x and y
+      point.x = Math.min(Math.max(point.x, 0), canvasWidth)
+      point.y = Math.min(Math.max(point.y, 0), canvasHeight)
       canvas.zoomToPoint(new fabric.Point(point.x, point.y), zoom)
       backgroundCanvas.zoomToPoint(new fabric.Point(point.x, point.y), zoom)
+      if (canvas.viewportTransform) {
+        const maxOffsetX = Math.max(canvasWidth * zoom - canvasWidth, 0)
+        const maxOffsetY = Math.max(canvasHeight * zoom - canvasHeight, 0)
+
+        canvas.viewportTransform[4] = Math.min(Math.max(canvas.viewportTransform[4], -maxOffsetX), 0)
+        canvas.viewportTransform[5] = Math.min(Math.max(canvas.viewportTransform[5], -maxOffsetY), 0)
+      }
+
+      if (backgroundCanvas.viewportTransform) {
+        const maxOffsetX = Math.max(canvasWidth * zoom - canvasWidth, 0)
+        const maxOffsetY = Math.max(canvasHeight * zoom - canvasHeight, 0)
+
+        backgroundCanvas.viewportTransform[4] = Math.min(Math.max(backgroundCanvas.viewportTransform[4], -maxOffsetX), 0)
+        backgroundCanvas.viewportTransform[5] = Math.min(Math.max(backgroundCanvas.viewportTransform[5], -maxOffsetY), 0)
+      }
+      canvas.renderAll()
+      backgroundCanvas.renderAll()
       e.e.preventDefault()
       e.e.stopPropagation()
     })
@@ -191,21 +210,30 @@ const DrawableCanvas = ({ args }: ComponentProps) => {
 
     canvas.on("mouse:down", (e: any) => {
       if (e.button === 3) {
-        isDragging = true
-        const pointer = canvas.getPointer(e.e)
-        lastPosX = pointer.x
-        lastPosY = pointer.y
+        const zoom = canvas.getZoom()
+        const contentWidth = canvasWidth * zoom
+        const contentHeight = canvasHeight * zoom
+
+        // Prevent dragging if content is smaller than canvas
+        if (contentWidth > canvasWidth || contentHeight > canvasHeight) {
+          isDragging = true
+          const pointer = canvas.getPointer(e.e)
+          lastPosX = pointer.x
+          lastPosY = pointer.y
+        }
       }
     })
 
     canvas.on("mouse:move", (e: any) => {
       if (isDragging) {
-        const pointer = canvas.getPointer(e.e)
+        const pointer = canvas.getPointer(e.e, true)
         const deltaX = pointer.x - lastPosX
         const deltaY = pointer.y - lastPosY
 
         let point = new fabric.Point(deltaX, deltaY)
-
+        // Limit the range of x and y, scale point by zoom
+        point.x = Math.min(Math.max(point.x, -canvasWidth), canvasWidth)
+        point.y = Math.min(Math.max(point.y, -canvasHeight), canvasHeight)
         canvas.relativePan(point)
         backgroundCanvas.relativePan(point)
 
@@ -222,21 +250,18 @@ const DrawableCanvas = ({ args }: ComponentProps) => {
       }
     })
 
-    canvas.on("mouse:dblclick", () => {
-      saveState(canvas.toJSON())
-    })
-
     // Cleanup tool + send data to Streamlit events
     return () => {
       cleanupToolEvents()
       canvas.off("mouse:up")
-      canvas.off("mouse:dblclick")
       canvas.off("mouse:wheel")
       canvas.off("mouse:down")
       canvas.off("mouse:move")
     }
   }, [
     canvas,
+    canvasHeight,
+    canvasWidth,
     strokeWidth,
     strokeColor,
     displayRadius,
