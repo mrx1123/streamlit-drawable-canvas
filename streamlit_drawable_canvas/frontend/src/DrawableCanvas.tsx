@@ -346,6 +346,7 @@ const DrawableCanvas = ({ args }: ComponentProps) => {
             resetState(initialState)
             resetZoom() // Reset zoom when resetting state
           }}
+          resetZoomCallback={resetZoom} // Add reset zoom callback
         />
       )}
     </div>
